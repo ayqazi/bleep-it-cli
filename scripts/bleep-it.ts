@@ -16,6 +16,10 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const execFileAsync = promisify(execFile);
 
+const DEFAULT_MODEL = 'Xenova/whisper-small.en';
+const DEFAULT_REVISION = 'main';
+const DEFAULT_WORDS = 'fuck,shit,damn,bitch,dick,cunt,bastard,asshole';
+
 function audioBufferToWav(buffer: AudioBuffer): Buffer {
   const numberOfChannels = buffer.numberOfChannels;
   const length = buffer.length * numberOfChannels * 2 + 44;
@@ -64,13 +68,13 @@ Options:
   -i, --input <path>           Input audio/video file (required)
   -o, --output <path>          Output file path (default: input-censored.ext)
   --words <list>               Comma-separated words to censor
-                               (default: fuck,shit,damn,ass,bitch,dick,cunt,bastard,asshole)
+                                (default: ${DEFAULT_WORDS})
   --bleep-sound <name>         Bleep sound: bleep, brown, dolphin, trex, silence
                                (default: bleep)
   --bleep-volume <0-100>       Bleep volume percentage (default: 80)
   --buffer <seconds>           Extra time buffer around each bleep (default: 0)
   --original-volume <0.0-1.0>  Original audio volume during bleeps (default: 0.0)
-  --model <id>                 Whisper model (default: Xenova/whisper-tiny.en)
+  --model <id>                 Whisper model (default: ${DEFAULT_MODEL})
   --language <code>            Language code (default: en)
   --match-mode <mode>          Match mode: exact, partial, fuzzy (default: exact)
   --fuzzy-distance <n>         Max Levenshtein distance for fuzzy (default: 1)
@@ -84,6 +88,21 @@ async function ffmpeg(args: string[]): Promise<void> {
   // ffmpeg writes to stderr even on success; ignore unless it's a real error
   if (stderr && stderr.includes('Error')) {
     throw new Error(`ffmpeg error: ${stderr}`);
+  }
+}
+
+async function hasSubtitleStream(filePath: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 's',
+      '-show_entries', 'stream=index',
+      '-of', 'csv=p=0',
+      filePath,
+    ]);
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
   }
 }
 
@@ -114,12 +133,12 @@ async function main() {
 
   const inputPath = parsed['--input'];
   const outputPath = parsed['--output'];
-  const wordsStr = parsed['--words'] || 'fuck,shit,damn,ass,bitch,dick,cunt,bastard,asshole';
+  const wordsStr = parsed['--words'] || DEFAULT_WORDS;
   const bleepSound = parsed['--bleep-sound'] || 'bleep';
   const bleepVolume = (parsed['--bleep-volume'] ?? 80) / 100;
   const buffer = parsed['--buffer'] ?? 0;
   const originalVolume = parsed['--original-volume'] ?? 0.0;
-  const model = parsed['--model'] || 'Xenova/whisper-tiny.en';
+  const model = parsed['--model'] || DEFAULT_MODEL;
   const language = parsed['--language'] || 'en';
   const matchMode = parsed['--match-mode'] || 'exact';
   const fuzzyDistance = parsed['--fuzzy-distance'] ?? 1;
@@ -211,10 +230,8 @@ async function main() {
     pcm16k = rendered.getChannelData(0);
   }
 
-  const isTimestampedModel = model.includes('_timestamped');
-  const revision = isTimestampedModel ? 'main' : 'output_attentions';
   const transcriber = await pipeline('automatic-speech-recognition', model, {
-    revision,
+    revision: DEFAULT_REVISION,
     progress_callback: (p: any) => {
       if (p?.progress !== undefined) {
         const v = p.progress > 1 ? p.progress / 100 : p.progress;
@@ -345,10 +362,18 @@ async function main() {
   const rendered = await offlineCtx.startRendering();
   const wavBuffer = audioBufferToWav(rendered);
 
-  if (isVideoInput) {
+if (isVideoInput) {
     console.error('[5/5] Remuxing video with censored audio...');
     await fs.writeFile(tmpCensored, wavBuffer);
-    await ffmpeg(['-i', tmpInput, '-i', tmpCensored, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', '-map', '0:v:0', '-map', '1:a:0', '-async', '1', tmpOutput]);
+
+    const hasSubtitles = await hasSubtitleStream(tmpInput);
+    const remuxArgs = ['-i', tmpInput, '-i', tmpCensored, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', '-map', '0:v:0', '-map', '1:a:0'];
+    if (hasSubtitles) {
+      console.error('  Preserving subtitles...');
+      remuxArgs.push('-c:s', 'copy', '-map', '0:s');
+    }
+    remuxArgs.push('-async', '1', tmpOutput);
+    await ffmpeg(remuxArgs);
     await fs.copyFile(tmpOutput, finalOutput);
   } else {
     await fs.writeFile(finalOutput, wavBuffer);
