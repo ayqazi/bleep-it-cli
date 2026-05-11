@@ -1,153 +1,76 @@
-<a href="https://www.producthunt.com/posts/bleep-that-sh-t?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-bleep&#0045;that&#0045;sh&#0042;t" target="_parent"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=470378&theme=light" alt="Bleep&#0032;That&#0032;Sh&#0042;t&#0033; - A&#0032;whisper&#0032;app&#0032;that&#0032;bleeps&#0032;out&#0032;chosen&#0032;words&#0032;in&#0032;YouTube&#0032;videos | Product Hunt" style="width: 250px; height: 45px;" /></a>
+# Bleep That Sh\*t! — CLI Audio & Video Censorship Tool
 
-# Bleep That Sh\*t! — In-Browser Audio & Video Censorship Tool
+Transcribe and censor words in audio/video files using Whisper ONNX models.
+All processing is local — nothing is sent to a server.
 
-Make someone sound naughty 😈 or make your content more Ad-friendly.
-
-**Bleep That Sh\*t!** lets you instantly transcribe and censor words in your audio or video files, with full control over what gets bleeped. No uploads, no servers, no installs — everything happens right in your browser.
-
-**The current in-browser implementation works for clips of length 10 minutes or less.**
-
----
-
-## How it works
-
-1. **Upload** your audio (MP3) or video (MP4) file.
-2. **Transcribe** using Whisper ONNX models (transformers.js) — all in-browser.
-3. **Censor**: Pick words to bleep (exact, partial, or fuzzy match).
-4. **Preview & Download**: Hear the result and save your censored file.
-
-All processing is done locally in your browser. Your media and transcripts stay private — nothing is sent to a server.
-
----
-
-## Examples
-
-Some examples of the end product (make sure to turn volume on, its off by default).
-
-https://github.com/user-attachments/assets/da50f8a9-27ba-4747-92e0-72a25e65175c
-
-Let's look more closely at the last example above - below is a short clip we'll bleep out some words from using the pipeline in this repo. (make sure to turn on audio - its off by default)
-
-https://github.com/neonwatty/bleep-that-shit/assets/16326421/fb8568fe-aba0-49e2-a563-642d658c0651
-
-Now the same clip with the words - "treetz", "ice", "cream", "chocolate", "syrup", and "cookie" - bleeped out
-
-https://github.com/neonwatty/bleep-that-shit/assets/16326421/63ebd7a0-46f6-4efd-80ea-20512ff427c0
-
----
-
-## Using the App
-
-Just open the app in any modern browser — **no installation or setup required**.
-
-### Live Demo
-
-Visit the deployed app at [https://neonwatty.github.io/bleep-that-shit/](https://neonwatty.github.io/bleep-that-shit/) or run it locally.
-
----
-
-## App Features
-
-### Main Workflow (`/bleep`)
-
-- Upload audio or video files
-- Select language and Whisper model
-- Transcribe to generate word-level timestamps
-- Enter words to censor with multiple matching modes (exact, partial, fuzzy)
-- Choose from different bleep sounds
-- Preview and download the censored result
-
-### Model Comparison (`/sampler`)
-
-- Compare transcription accuracy across different Whisper models
-- Test processing speeds
-- Find the best model for your needs
-
----
-
-## Running Locally
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- [FFmpeg](https://ffmpeg.org/) installed on your system (for video processing)
 
-### Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/neonwatty/bleep-that-shit.git
-   cd bleep-that-shit
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
-
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
-
----
-
-## Available Scripts
+## Installation
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm test            # Run Playwright tests
-npm run test:ui     # Run tests with UI
+git clone <repo>
+cd bleep-it
+npm install
 ```
 
----
+## Usage
 
-## Browser Requirements
+```bash
+# Basic usage — censor swear words in a video
+npx tsx src/cli.ts --input video.mp4
 
-- Modern browser with WebAssembly support
-- Web Workers support
-- Sufficient RAM for model loading (varies by model size)
+# Custom word list
+npx tsx src/cli.ts --input audio.mp3 --words "fuck,shit,damn"
 
----
+# Specify output file
+npx tsx src/cli.ts --input video.mp4 --output clean.mp4
 
-## Available Whisper Models
+# Transcribe only (no censoring)
+npx tsx src/cli.ts --input audio.mp3 --transcribe-only
 
-- **Tiny** (39 MB): Fastest, good for quick processing
-- **Base** (74 MB): Better accuracy, still fast
-- **Small** (242 MB): Best accuracy, slower processing
+# Fuzzy matching
+npx tsx src/cli.ts --input audio.mp3 --words "heck" --match-mode fuzzy --fuzzy-distance 2
 
-Both English-only and multilingual variants are available.
+# Different bleep sound
+npx tsx src/cli.ts --input audio.mp3 --bleep-sound dolphin
 
----
+# Full options
+npx tsx src/cli.ts --input video.mp4 \
+  --words "fuck,shit,bitch" \
+  --bleep-sound brown \
+  --bleep-volume 70 \
+  --buffer 0.1 \
+  --original-volume 0.0 \
+  --model Xenova/whisper-small.en \
+  --match-mode exact
+```
 
-## Contributing
+## Options
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-i, --input` | Input audio/video file | (required) |
+| `-o, --output` | Output file path | input-censored.ext |
+| `--words` | Comma-separated words to censor | fuck,shit,damn,bitch,... |
+| `--bleep-sound` | Bleep sound (bleep/brown/dolphin/trex/silence) | bleep |
+| `--bleep-volume` | Bleep volume 0-100 | 80 |
+| `--buffer` | Extra seconds around each bleep | 0 |
+| `--original-volume` | Original audio volume during bleeps 0.0-1.0 | 0.0 |
+| `--model` | Whisper model ID | Xenova/whisper-small.en |
+| `--language` | Language code | en |
+| `--match-mode` | Match mode (exact/partial/fuzzy) | exact |
+| `--fuzzy-distance` | Max Levenshtein distance for fuzzy | 1 |
+| `--transcribe-only` | Only transcribe, don't censor | false |
+| `-h, --help` | Show help | |
 
----
+## Supported Formats
+
+- **Audio**: mp3, wav, ogg, flac, m4a, aac
+- **Video**: mp4, mkv, avi, mov, webm, m4v
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-- [Transformers.js](https://github.com/xenova/transformers.js) for WebAssembly Whisper models
-- [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) for media processing
-- [OpenAI Whisper](https://github.com/openai/whisper) for the original models
-
----
-
-## Support
-
-For issues and questions, please open an issue on [GitHub](https://github.com/neonwatty/bleep-that-shit/issues).
+Apache License 2.0
