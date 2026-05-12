@@ -1,4 +1,4 @@
-# Bleep That Sh\*t! — CLI Audio & Video Censorship Tool
+# Bleep It (forked and reworked from Bleep That Sh\*t!)
 
 Transcribe and censor words in audio/video files using Whisper ONNX models.
 All processing is local — nothing is sent to a server.
